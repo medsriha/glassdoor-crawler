@@ -8,7 +8,20 @@ import progressbar
 
 
 def get_position_link(url):
+    
+    '''
 
+    This function has for role to send a request to Glassdoor and crawlers for links which have for class 'jobLink'.
+    get_position_links() collects data science applications in every
+    page which get_all_link() asks for
+
+    Args:
+           url: page URL
+
+    returns: Python list:
+            links: all links for job applications present a single page.
+    '''
+    
     links = []
     header = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
     response = requests.get(url,headers=header)
@@ -22,6 +35,20 @@ def get_position_link(url):
 
 
 def get_all_links(num_page, url):
+    
+     '''
+
+    This function is meant to collect all jobs applications and stores the data in
+    a single link for later and faster access.
+
+    Args:
+            num_page: Number of pages get_position_link() function should crawlers in
+            url: The URL of a single page.
+
+    returns: Python List:
+            link: all links which get_position_link() has been crawling in. Links of job applications
+
+    '''
     link = []
     i = 1
     print('Collecting links....')
@@ -37,8 +64,19 @@ def get_all_links(num_page, url):
 
 
 def scrap_job_page(url):
+        
+    '''
+    This function collects all data we are asking for and store the result in a dictionary.
+    
+    Args:
+            url: a single url of a job application.
+    
+    return: Python dictionary
+            dictionary returning data we asked the crawler to collect for us.
+            
+    
+    '''
     dic = {}
-    br_list = []
     header = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
     response = requests.get(url, headers=header)
@@ -120,10 +158,16 @@ def scrap_job_page(url):
 
 
 if __name__ == '__main__':
-
+    
+    #This link is aimed to start scraping data science jobs. If you would like to scarp data related to another type of job,
+    #you should then copy the link of the desired type of job (i.e, Software engineering) from glassdoor and past the link
+    #into get_all_links() function.
+    #30 is the number of pages. There are around 60 positions in every page.
     links = get_all_links(30, 'https://www.glassdoor.com/Job/data-scientist-jobs-SRCH_KO0,14_IP')
     flatten = [item for sublist in links for item in sublist]
+    # The scraper may crawl duplicate links
     remove_duplicates = list(set(flatten))
+    #UI progress bar
     bar = progressbar.ProgressBar(maxval=len(remove_duplicates), \
                                   widgets=['Crawling the site: ', progressbar.Bar('=', '[', ']'), ' ',
                                            progressbar.Percentage()])
@@ -136,10 +180,11 @@ if __name__ == '__main__':
         except:
             pass
         time.sleep(0.5)
-
-    #Write into Excel
+    #Save the dictionary into a dataframe
     df_glass = pd.DataFrame.from_dict(list_result)
-    writer = pd.ExcelWriter('glassdoor position scraping.xlsx', engine='openpyxl')
+    #The program will create an Excel file named data_glassdoor in the same directory as this script 
+    writer = pd.ExcelWriter('data_glassdoor.xlsx', engine='openpyxl')
+    #Writing data into the Excel file
     df_glass.to_excel(writer, index=False)
     df_glass.to_excel(writer, startrow=len(df_glass) + 2, index=False)
     writer.save()
