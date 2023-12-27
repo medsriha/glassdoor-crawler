@@ -6,185 +6,168 @@ from datetime import datetime, timedelta
 import numpy as np
 import progressbar
 
-
-def get_position_link(url):
-    
+def get_position_links(url):
     '''
-
-    This function has for role to send a request to Glassdoor and crawlers for links which have for class 'jobLink'.
-    get_position_links() collects data science applications in every
-    page which get_all_link() asks for
+    This function sends a request to Glassdoor, crawls links with class 'jobLink',
+    and collects data science job application links on a single page.
 
     Args:
-           url: page URL
+        url (str): The URL of the page.
 
-    returns: Python list:
-            links: all links for job applications present a single page.
+    Returns:
+        list: A list containing links for job applications on the page.
     '''
-    
     links = []
     header = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
-    response = requests.get(url,headers=header)
+    response = requests.get(url, headers=header)
     soup = BeautifulSoup(response.text, 'html.parser')
 
-    a = soup.find_all('a', class_='jobLink')
-    for i in a:
-        links.append('https://www.glassdoor.com' + i.get('href'))
+    # Find all links with class 'jobLink' and construct full URLs
+    job_links = soup.find_all('a', class_='jobLink')
+    for link in job_links:
+        links.append('https://www.glassdoor.com' + link.get('href'))
 
     return links
 
-
-def get_all_links(num_page, url):
-    
-     '''
-
-    This function is meant to collect all jobs applications and stores the data in
-    a single link for later and faster access.
+def get_all_links(num_pages, base_url):
+    '''
+    Collects all job application links from multiple pages.
 
     Args:
-            num_page: Number of pages get_position_link() function should crawlers in
-            url: The URL of a single page.
+        num_pages (int): Number of pages to crawl.
+        base_url (str): The base URL of a single page.
 
-    returns: Python List:
-            link: all links which get_position_link() has been crawling in. Links of job applications
-
+    Returns:
+        list: A list of lists containing job application links.
     '''
-    link = []
+    all_links = []
     i = 1
     print('Collecting links....')
-    while i <= num_page:
+    while i <= num_pages:
         try:
-            url_main = url + str(i) + '.htm'
-            link.append(get_position_link(url_main))
-            i = i + 1
+            # Construct the URL for the current page
+            url_main = f'{base_url}{i}.htm'
+            all_links.append(get_position_links(url_main))
+            i += 1
             time.sleep(0.5)
         except:
             print('No more pages found.')
-    return link
+    return all_links
 
-
-def scrap_job_page(url):
-        
+def scrape_job_page(url):
     '''
-    This function collects all data we are asking for and store the result in a dictionary.
-    
+    Collects data from a single job application page and stores it in a dictionary.
+
     Args:
-            url: a single url of a job application.
-    
-    return: Python dictionary
-            dictionary returning data we asked the crawler to collect for us.
-            
-    
+        url (str): The URL of a job application page.
+
+    Returns:
+        dict: A dictionary containing collected data.
     '''
-    dic = {}
-    header = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+    data_dict = {}
+    header = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
     response = requests.get(url, headers=header)
     soup = BeautifulSoup(response.text, 'html.parser')
     body = soup.find('body')
-    #     print(title)
 
     try:
-        #         job title
-        dic['job_title'] = body.find('h2', class_='noMargTop margBotXs strong').text.strip()
+        data_dict['job_title'] = body.find('h2', class_='noMargTop margBotXs strong').text.strip()
     except:
-        dic['job_title'] = np.nan
+        data_dict['job_title'] = np.nan
 
     try:
-        # company name
-        dic['company_name'] = body.find('span', class_='strong ib').text.strip()
+        data_dict['company_name'] = body.find('span', class_='strong ib').text.strip()
     except:
-        dic['company_name'] = np.nan
+        data_dict['company_name'] = np.nan
 
     try:
-        # location
         location = body.find('span', class_='subtle ib').text.strip().replace('–\xa0', '')
-        dic['location'] = location
+        data_dict['location'] = location
     except:
-        dic['location'] = np.nan
-
-
-    try:
-        dic['salary_estimated'] = body.find('h2', class_='salEst').text.strip()
-    except:
-        dic['salary_estimated'] = np.nan
-    try:
-        dic['salary_min'] = body.find('div', class_='minor cell alignLt').text.strip()
-    except:
-        dic['salary_min'] = np.nan
-    try:
-
-        dic['salary_max'] = body.find('div', class_='minor cell alignRt').text.strip()
-    except:
-        dic['salary_max'] = np.nan
+        data_dict['location'] = np.nan
 
     try:
-        # date
+        data_dict['salary_estimated'] = body.find('h2', class_='salEst').text.strip()
+    except:
+        data_dict['salary_estimated'] = np.nan
+
+    try:
+        data_dict['salary_min'] = body.find('div', class_='minor cell alignLt').text.strip()
+    except:
+        data_dict['salary_min'] = np.nan
+
+    try:
+        data_dict['salary_max'] = body.find('div', class_='minor cell alignRt').text.strip()
+    except:
+        data_dict['salary_max'] = np.nan
+
+    try:
         date = body.find('span', class_='minor nowrap').text.strip()
-        split = date.split(" ")
-        if "second" in split or "seconds" in split:
-            dic["date_posted"] = datetime.today().date()
-        if "minute" in split or "minutes" in split:
-            dic["date_posted"] = datetime.today().date()
-        if "hours" in split or "hour" in split:
-            dic["date_posted"] = datetime.today().date()
-        if "week" in split or "weeks" in split:
-            dic["date_posted"] = (datetime.today() - (timedelta(days=int(split[0]) * 7))).date()
-        if "days" in split or "day" in split:
-            dic["date_posted"] = (datetime.today() - timedelta(days=int(split[0]))).date()
-        if "month" in date or "months" in date:
-            dic["date_posted"] = (datetime.today() - (timedelta(days=int(split[0]) * 30))).date()
+        # Parse and convert the date to a standardized format
+        data_dict['date_posted'] = parse_date(date)
     except:
+        data_dict['date_posted'] = datetime.today().date()
 
-        dic["date_posted"] = datetime.today().date()
-
-    #     Job description
     list_skills = []
     job_des = body.find('div', class_='jobDesc')
 
-    for i in job_des:
-        try:
-            for li in i.find_all("li"):
-                list_skills.append(li.text.strip())
-        except:
-            break
-    try:
+    for li in job_des.find_all("li"):
+        list_skills.append(li.text.strip())
 
-        dic['job_description'] = list_skills
-    except:
-        dic['job_description'] = np.nan
+    data_dict['job_description'] = list_skills
 
-    return dic
+    return data_dict
 
+def parse_date(date_str):
+    '''
+    Parses and converts the date string to a standardized format.
+
+    Args:
+        date_str (str): The date string to parse.
+
+    Returns:
+        datetime: A datetime object representing the parsed date.
+    '''
+    split = date_str.split(" ")
+    if "second" in split or "seconds" in split or "minute" in split or "minutes" in split or "hours" in split or "hour" in split:
+        return datetime.today().date()
+    elif "week" in split or "weeks" in split:
+        return (datetime.today() - (timedelta(days=int(split[0]) * 7))).date()
+    elif "days" in split or "day" in split:
+        return (datetime.today() - timedelta(days=int(split[0]))).date()
+    elif "month" in date_str or "months" in date_str:
+        return (datetime.today() - (timedelta(days=int(split[0]) * 30))).date()
+    else:
+        return datetime.today().date()
 
 if __name__ == '__main__':
-    
-    #This link is aimed to start scraping data science jobs. If you would like to scarp data related to another type of job,
-    #you should then copy the link of the desired type of job (i.e, Software engineering) from glassdoor and past the link
-    #into get_all_links() function.
-    #30 is the number of pages. There are around 60 positions in every page.
-    links = get_all_links(30, 'https://www.glassdoor.com/Job/data-scientist-jobs-SRCH_KO0,14_IP')
-    flatten = [item for sublist in links for item in sublist]
-    # The scraper may crawl duplicate links
-    remove_duplicates = list(set(flatten))
-    #UI progress bar
-    bar = progressbar.ProgressBar(maxval=len(remove_duplicates), \
+    # Specify the base URL for data science jobs on Glassdoor
+    base_url = 'https://www.glassdoor.com/Job/data-scientist-jobs-SRCH_KO0,14_IP'
+    # Number of pages to crawl
+    num_pages = 30
+
+    # Collect all job application links
+    links = get_all_links(num_pages, base_url)
+    # Flatten the list of links and remove duplicates
+    unique_links = list(set(item for sublist in links for item in sublist))
+
+    # UI progress bar
+    bar = progressbar.ProgressBar(maxval=len(unique_links), \
                                   widgets=['Crawling the site: ', progressbar.Bar('=', '[', ']'), ' ',
                                            progressbar.Percentage()])
-    list_result = []
+    list_results = []
 
-    for page in remove_duplicates:
-        bar.update(remove_duplicates.index(page))
+    for page in unique_links:
+        bar.update(unique_links.index(page))
         try:
-            list_result.append(scrap_job_page(page))
+            list_results.append(scrape_job_page(page))
         except:
             pass
         time.sleep(0.5)
-    #Save the dictionary into a dataframe
-    df_glass = pd.DataFrame.from_dict(list_result)
-    #The program will create an Excel file named data_glassdoor in the same directory as this script 
-    writer = pd.ExcelWriter('data_glassdoor.xlsx', engine='openpyxl')
-    #Writing data into the Excel file
-    df_glass.to_excel(writer, index=False)
-    df_glass.to_excel(writer, startrow=len(df_glass) + 2, index=False)
-    writer.save()
+
+    # Save the data in a DataFrame
+    df_glass = pd.DataFrame(list_results)
+
+    # Save the DataFrame to an Excel file
+    with pd.ExcelWriter('data_glassdoor.xlsx', engine='openpyxl') as writer:
+        df_glass.to_excel(writer, index=False)
